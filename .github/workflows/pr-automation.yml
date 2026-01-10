@@ -1,0 +1,154 @@
+name: PR Automation Workflow
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  code-quality:
+    name: code-quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Prettier Checks
+        run: npx prettier --check .
+
+      - name: Post Code Quality Report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commentBody = `# Code Quality Report
+            ## ESLint Checks: ✅ Completed
+            ## Prettier Checks: ✅ Completed`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody
+            });
+
+  testing-suite:
+    name: testing-suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Test Suite with Coverage
+        run: npm test -- --coverage
+
+      - name: Upload Coverage Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+      - name: Post Test Coverage Report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commentBody = `# Test Coverage Report
+            ## Test Suite: ✅ Completed
+            ## Coverage Summary: Generated (see attached coverage-report artifact)`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody
+            });
+
+  security-scan:
+    name: security-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Dependency Vulnerability Check
+        run: npm audit --audit-level=moderate
+
+      - name: Post Security Scan Report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commentBody = `# Security Scan Report
+            ## Vulnerabilities Check: ✅ Completed
+            ## Dependencies Audit: ✅ Completed (moderate+ severity)`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody
+            });
+
+  build-validation:
+    name: build-validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Application
+        run: npm run build
+
+      - name: Upload Build Preview Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-preview
+          path: dist/
+          retention-days: 7
+
+      - name: Post Build Validation
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commentBody = `# Build Validation
+            ## Application Build: ✅ Completed
+            ## Deployment Preview: Generated (see attached build-preview artifact)`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody
+            });
